@@ -1,14 +1,23 @@
 import HeaderBox from "@/components/HeaderBox";
 import RightSidebar from "@/components/RightSidebar";
 import TotalBalanceBox from "@/components/TotalBalanceBox";
+import { getLoggedInUser } from "@/lib/actions/user.action";
 import React from "react";
 
-const Home = () => {
-  const loggedIn = {
-    firstName: "Hassan",
-    lastName: "Alti",
-    email: "hassanalti@outlook.com",
-  };
+const Home = async () => {
+  const loggedInUser = await getLoggedInUser();
+  let loggedIn = {};
+
+  if (loggedInUser && loggedInUser.name) {
+    const [firstName, ...lastNameParts] = loggedInUser.name.split(" ");
+    const lastName = lastNameParts.join(" "); // Combine the rest of the name parts as the last name
+
+    loggedIn = {
+      firstName,
+      lastName,
+      email: loggedInUser.email,
+    };
+  }
   return (
     <section className="home">
       <div className="home-content">
