@@ -5,19 +5,8 @@ import { getLoggedInUser } from "@/lib/actions/user.action";
 import React from "react";
 
 const Home = async () => {
-  const loggedInUser = await getLoggedInUser();
-  let loggedIn = {};
+  const loggedIn = await getLoggedInUser();
 
-  if (loggedInUser && loggedInUser.name) {
-    const [firstName, ...lastNameParts] = loggedInUser.name.split(" ");
-    const lastName = lastNameParts.join(" "); // Combine the rest of the name parts as the last name
-
-    loggedIn = {
-      firstName,
-      lastName,
-      email: loggedInUser.email,
-    };
-  }
   return (
     <section className="home">
       <div className="home-content">
@@ -25,7 +14,7 @@ const Home = async () => {
           <HeaderBox
             type="greeting"
             title="Welcome"
-            user={loggedIn.firstName || "guest"}
+            user={loggedIn?.name || "guest"}
             subtext="Access and manage your account and transactions effeciently."
           />
 
