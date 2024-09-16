@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import {
   createLinkToken,
   exchangePublicToken,
-} from "@/lib/actions/user.action";
+} from "@/lib/actions/user.actions";
 
 const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
   const router = useRouter();
@@ -47,7 +47,7 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
       {variant === "primary" ? (
         <Button
           className="plaidlink-primary"
-          onClick={() => open}
+          onClick={() => open()}
           disabled={!ready}
         >
           Connect Bank
