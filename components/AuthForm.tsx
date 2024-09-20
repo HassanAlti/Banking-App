@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -20,11 +19,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Divide, Loader2 } from "lucide-react";
 import CustomInput from "./CustomInput";
-import { authFormSchema } from "@/lib/utils";
+import { authFormSchema, US_STATES } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
 import { getLoggedInUser, signIn, signUp } from "@/lib/actions/user.actions";
 import PlaidLink from "./PlaidLink";
+import { toast } from "sonner";
+import CustomSelect from "./CustomSelect";
+import CustomDatePicker from "./CustomDatepicker";
 
 const AuthForm = ({ type }: { type: string }) => {
   const router = useRouter();
@@ -63,6 +65,7 @@ const AuthForm = ({ type }: { type: string }) => {
 
         const newUser = await signUp(userData);
         setUser(newUser);
+        toast.success("Account created successfully");
       }
 
       if (type === "sign-in") {
@@ -70,12 +73,63 @@ const AuthForm = ({ type }: { type: string }) => {
           email: data.email,
           password: data.password,
         });
-        if (response) router.push("/");
+        if (response) {
+          toast.success("Signed in successfully");
+          router.push("/");
+        }
       }
     } catch (error) {
+      handleError(error);
       console.log(error);
     } finally {
       setisLoading(false);
+    }
+  };
+
+  const handleError = (error: unknown) => {
+    if (error instanceof z.ZodError) {
+      error.issues.forEach((issue) =>
+        toast.error(`${issue.path.join(".")}: ${issue.message}`)
+      );
+      return;
+    }
+
+    if (!(error instanceof Error)) {
+      toast.error("An unexpected error occurred. Please try again later.");
+      return;
+    }
+
+    const errorMessages: Record<string, string> = {
+      EMAIL_EXISTS:
+        "This email is already in use. Please use a different email or sign in.",
+      INVALID_CREDENTIALS:
+        "Invalid email or password. Please check your credentials and try again.",
+      USER_NOT_FOUND:
+        "User not found. Please check your email or sign up for a new account.",
+      ERROR_CREATING_USER:
+        "There was an error creating your account. Please try again.",
+      ERROR_CREATING_DWOLLA_CUSTOMER:
+        "There was an error setting up your payment information. Please try again.",
+    };
+
+    if (error.message in errorMessages) {
+      toast.error(errorMessages[error.message]);
+    } else if (error.message.startsWith("DWOLLA_VALIDATION_ERROR:")) {
+      toast.error(
+        `There was an error with your information: ${error.message.replace(
+          "DWOLLA_VALIDATION_ERROR:",
+          ""
+        )}`
+      );
+    } else if (
+      error.message.startsWith("DWOLLA_ERROR:") ||
+      error.message.startsWith("APPWRITE_ERROR:")
+    ) {
+      toast.error(
+        `There was an error setting up your account: ${error.message}`
+      );
+    } else {
+      toast.error("An unexpected error occurred. Please try again later.");
     }
   };
 
@@ -149,12 +203,12 @@ const AuthForm = ({ type }: { type: string }) => {
                   />
 
                   <div className="flex gap-4">
-                    <CustomInput
+                    <CustomSelect
                       control={form.control}
-                      name={"state"}
-                      label={"State"}
-                      placeholder={"ex: TX"}
-                      type="text"
+                      name="state"
+                      label="State"
+                      placeholder="Select a state"
+                      options={US_STATES}
                     />
                     <CustomInput
                       control={form.control}
@@ -166,18 +220,17 @@ const AuthForm = ({ type }: { type: string }) => {
                   </div>
 
                   <div className="flex gap-4">
-                    <CustomInput
+                    <CustomDatePicker
                       control={form.control}
-                      name={"dateOfBirth"}
-                      label={"Date of Birth"}
-                      placeholder={"yyyy-mm-dd"}
-                      type="text"
+                      name="dateOfBirth"
+                      label="Date of Birth"
+                      placeholder="yyyy-mm-dd"
                     />
                     <CustomInput
                       control={form.control}
                       name={"ssn"}
                       label={"SSN"}
-                      placeholder={"ex: 1234-56-78"}
+                      placeholder={"ex: 1234"}
                       type="text"
                     />
                   </div>

@@ -51,15 +51,39 @@ export const createOnDemandAuthorization = async () => {
   }
 };
 
+interface DwollaError extends Error {
+  status?: number;
+  body?: {
+    code?: string;
+    message?: string;
+    _embedded?: {
+      errors?: Array<{ code: string; message: string; path?: string }>;
+    };
+  };
+}
+
 export const createDwollaCustomer = async (
   newCustomer: NewDwollaCustomerParams
-) => {
+): Promise<string> => {
   try {
-    return await dwollaClient
-      .post("customers", newCustomer)
-      .then((res) => res.headers.get("location"));
+    const response = await dwollaClient.post("customers", newCustomer);
+    const location = response.headers.get("location");
+    if (!location) throw new Error("DWOLLA_NO_CUSTOMER_URL");
+    return location;
   } catch (err) {
-    console.error("Creating a Dwolla Customer Failed: ", err);
+    const error = err as DwollaError;
+    if (
+      error.body?.code === "ValidationError" &&
+      error.body._embedded?.errors
+    ) {
+      const validationErrors = error.body._embedded.errors
+        .map((e) => e.message)
+        .join(", ");
+      throw new Error(`DWOLLA_VALIDATION_ERROR: ${validationErrors}`);
+    }
+    throw new Error(
+      `DWOLLA_ERROR: ${error.body?.message || error.message || String(err)}`
+    );
   }
 };
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
+import { AppwriteException, ID, Query } from "node-appwrite";
 import { createAdminClient, createSessionClient } from "../appwrite";
 import { cookies } from "next/headers";
 import { encryptId, extractCustomerIdFromUrl, parseStringify } from "../utils";
@@ -57,31 +57,45 @@ export const signIn = async (userData: signInProps) => {
     return parseStringify(user);
   } catch (error) {
     console.error("Error", error);
+    if (error instanceof AppwriteException) {
+      switch (error.code) {
+        case 401:
+          throw new Error("INVALID_CREDENTIALS");
+        case 404:
+          throw new Error("USER_NOT_FOUND");
+        default:
+          throw new Error("UNEXPECTED_ERROR");
+      }
+    } else if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error("UNEXPECTED_ERROR");
+    }
   }
 };
 
 export const signUp = async ({ password, ...userData }: SignUpParams) => {
   const { email, firstName, lastName } = userData;
+  const { account, database } = await createAdminClient();
 
   let newUserAccount;
+  let dwollaCustomerUrl;
 
   try {
-    const { account, database } = await createAdminClient();
+    // First, try to create the Dwolla customer
+    dwollaCustomerUrl = await createDwollaCustomer({
+      ...userData,
+      type: "personal",
+    });
+
+    // If Dwolla customer creation is successful, proceed with Appwrite account creation
     newUserAccount = await account.create(
       ID.unique(),
       email,
       password,
       `${firstName} ${lastName}`
     );
-
-    if (!newUserAccount) throw new Error("Error creating User");
-
-    const dwollaCustomerUrl = await createDwollaCustomer({
-      ...userData,
-      type: "personal",
-    });
-
-    if (!dwollaCustomerUrl) throw new Error("Error creating dwolla customer");
+    if (!newUserAccount) throw new Error("ERROR_CREATING_USER");
 
     const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
 
@@ -98,7 +112,6 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
     );
 
     const session = await account.createEmailPasswordSession(email, password);
-
     cookies().set("appwrite-session", session.secret, {
       path: "/",
       httpOnly: true,
@@ -108,11 +121,29 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     return parseStringify(newUser);
   } catch (error) {
-    console.error("Error", error);
+    // If an error occurs at any point, we need to clean up
+    if (newUserAccount) {
+      try {
+        await database.deleteDocument(
+          DATABASE_ID!,
+          USER_COLLECTION_ID!,
+          newUserAccount.$id
+        );
+      } catch (deleteError) {
+        console.error("Error deleting Appwrite account:", deleteError);
+      }
+    }
+
+    if (error instanceof AppwriteException) {
+      throw new Error(
+        error.code === 409 ? "EMAIL_EXISTS" : `APPWRITE_ERROR: ${error.message}`
+      );
+    }
+
+    // For Dwolla errors or any other errors
+    throw error;
   }
 };
-
-// ... your initilization functions
 
 export async function getLoggedInUser() {
   try {

@@ -61,6 +61,7 @@ declare type Account = {
   subtype: string;
   appwriteItemId: string;
   shareableId: string;
+  delete: () => Promise<void>;
 };
 
 declare type Transaction = {

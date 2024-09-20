@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Toaster } from "sonner";
 
 export default function RootLayout({
   children,
@@ -8,6 +9,7 @@ export default function RootLayout({
   return (
     <main className="flex min-h-screen w-full justify-between font-inter">
       {children}
+      <Toaster position="bottom-left" expand={true} richColors />
       <div className="auth-asset">
         <div>
           <Image
